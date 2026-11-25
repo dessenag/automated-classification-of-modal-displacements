@@ -1,0 +1,24 @@
+# downloaded data and third-party code
+*/data/raw/
+Utilities/external/
+
+# run folders and outputs written by the code
+*/results/
+*/Figures/
+
+# MATLAB
+*.asv
+
+# Ansys Mechanical APDL scratch files
+*.rst
+*.esav
+*.full
+*.mode
+*.mlv
+*.stat
+*.DSP
+*.db
+*.err
+*.log
+*.out
+*.page

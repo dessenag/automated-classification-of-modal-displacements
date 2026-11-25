@@ -1,0 +1,103 @@
+! Modal analysis of a tapered cantilever plate with SHELL181 elements.
+! Reads params.inc from the working directory and, if present, mesh.inc,
+! which overrides N_CHORD, N_SPAN and N_MODES.
+! Writes mode_<n>.csv (node, x, y, z, f, ux, uy, uz, rotx, roty, rotz) and freqs.csv.
+
+/CLEAR,NOSTART
+/PREP7
+
+/INPUT,'params','inc'
+
+/INQUIRE,HAS_MESH,EXIST,'mesh','inc'
+*IF,HAS_MESH,EQ,1,THEN
+  /INPUT,'mesh','inc'
+*ENDIF
+
+C_TIP = TAPER*C_ROOT
+
+! Material and section
+MP,EX,1,E_MOD
+MP,PRXY,1,NU
+MP,DENS,1,RHO
+ET,1,SHELL181
+KEYOPT,1,3,2              ! full integration with incompatible modes
+SECTYPE,1,SHELL
+SECDATA,THICK,1
+
+! Geometry: root LE, root TE, tip TE, tip LE. The leading edge is straight
+! (x = -C_ROOT/2 along the span) and the taper is taken by the trailing edge.
+K,1,-C_ROOT/2,0,0
+K,2, C_ROOT/2,0,0
+K,3,-C_ROOT/2+C_TIP,L_SPAN,0
+K,4,-C_ROOT/2,L_SPAN,0
+A,1,2,3,4
+
+! Mapped mesh
+LSEL,S,LINE,,1
+LSEL,A,LINE,,3
+LESIZE,ALL,,,N_CHORD
+LSEL,S,LINE,,2
+LSEL,A,LINE,,4
+LESIZE,ALL,,,N_SPAN
+LSEL,ALL
+MSHAPE,0,2D
+MSHKEY,1
+AMESH,ALL
+
+! Clamped root
+NSEL,S,LOC,Y,0
+D,ALL,ALL
+NSEL,ALL
+FINISH
+
+/SOLU
+ANTYPE,MODAL
+MODOPT,LANB,N_MODES
+MXPAND,N_MODES,,,NO
+SOLVE
+FINISH
+
+/POST1
+*GET,NNODE,NODE,0,COUNT
+*GET,NELEM,ELEM,0,COUNT
+*DIM,NID,ARRAY,NNODE
+*DIM,XX,ARRAY,NNODE
+*DIM,YY,ARRAY,NNODE
+*DIM,ZZ,ARRAY,NNODE
+*DIM,UXV,ARRAY,NNODE
+*DIM,UYV,ARRAY,NNODE
+*DIM,UZV,ARRAY,NNODE
+*DIM,RXV,ARRAY,NNODE
+*DIM,RYV,ARRAY,NNODE
+*DIM,RZV,ARRAY,NNODE
+*DIM,FRQ,ARRAY,N_MODES
+*VFILL,NID,RAMP,1,1
+*VGET,XX,NODE,1,LOC,X
+*VGET,YY,NODE,1,LOC,Y
+*VGET,ZZ,NODE,1,LOC,Z
+
+*DO,IM,1,N_MODES
+  SET,1,IM
+  *GET,FRQ(IM),MODE,IM,FREQ
+  FCUR = FRQ(IM)
+  *VGET,UXV,NODE,1,U,X
+  *VGET,UYV,NODE,1,U,Y
+  *VGET,UZV,NODE,1,U,Z
+  *VGET,RXV,NODE,1,ROT,X
+  *VGET,RYV,NODE,1,ROT,Y
+  *VGET,RZV,NODE,1,ROT,Z
+  *CFOPEN,'mode_%IM%','csv'
+  *VWRITE
+('node,x,y,z,f,ux,uy,uz,rotx,roty,rotz')
+  *VWRITE,NID(1),XX(1),YY(1),ZZ(1),FCUR,UXV(1),UYV(1),UZV(1),RXV(1),RYV(1),RZV(1)
+(F8.0,',',E16.8,',',E16.8,',',E16.8,',',E16.8,',',E16.8,',',E16.8,',',E16.8,',',E16.8,',',E16.8,',',E16.8)
+  *CFCLOS
+*ENDDO
+
+*CFOPEN,'freqs','csv'
+*VWRITE,NNODE,NELEM
+('nodes,',F10.0,',elements,',F10.0)
+*VWRITE,FRQ(1)
+(E18.10)
+*CFCLOS
+FINISH
